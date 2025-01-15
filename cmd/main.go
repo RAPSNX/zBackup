@@ -3,8 +3,8 @@ package main
 import (
 	"log"
 
+	"github.com/kataras/golog"
 	"github.com/rgroemmer/zfs-backupper/pkg/zfs"
-	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
@@ -16,8 +16,7 @@ func main() {
 }
 
 func run() error {
-	log, _ := zap.NewProduction()
-	defer log.Sync()
+	log := golog.New()
 
 	log.Info("Setting up rest-config")
 	restConfig, err := config.GetConfig()
@@ -25,10 +24,15 @@ func run() error {
 		return err
 	}
 
+	log.Info("Setting up kubernetes clientset")
 	clientset, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
 		return err
 	}
 
-	return (&zfs.BackupRunner{Client: clientset}).Exec()
+	log.Info("Starting BackupManager")
+	return (&zfs.BackupManager{
+		KubeClient: clientset,
+		Log:        log,
+	}).Start()
 }

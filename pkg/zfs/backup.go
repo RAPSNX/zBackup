@@ -3,8 +3,8 @@ package zfs
 import (
 	"context"
 	"fmt"
-	"log"
 
+	"github.com/kataras/golog"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -19,23 +19,31 @@ var (
 	datasetCount int
 )
 
-type BackupRunner struct {
-	Client *kubernetes.Clientset
+type BackupManager struct {
+	KubeClient *kubernetes.Clientset
+	Log        *golog.Logger
 }
 
-func (b *BackupRunner) Exec() error {
+func (b *BackupManager) Start() error {
 	ctx := context.Background()
+	zfs := client{}
 
-	pvList, err := b.Client.CoreV1().PersistentVolumes().List(ctx, metav1.ListOptions{})
+	b.Log.Info("Retriving list of PVs")
+	pvList, err := b.KubeClient.CoreV1().PersistentVolumes().List(ctx, metav1.ListOptions{})
 	if err != nil {
+		b.Log.Error("Error while retriving list of PVs")
 		return err
 	}
 
+	b.Log.Info("Extracting dataset paths out of PVs")
 	datasetPathList := getDatasetPathList(pvList)
 
 	pvCount = len(pvList.Items)
 	datasetCount = len(datasetPathList)
-	log.Printf("Found %d datasets out of %d PVs", datasetCount, pvCount)
+	b.Log.Infof("Found %d datasets out of %d PVs", datasetCount, pvCount)
+
+	// TODO: remove test
+	fmt.Println(zfs.list())
 
 	return nil
 }
