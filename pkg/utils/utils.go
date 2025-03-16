@@ -1,4 +1,4 @@
-package zfs
+package utils
 
 import (
 	"bytes"
@@ -7,13 +7,18 @@ import (
 	"strings"
 )
 
-type client struct{}
-
-func (c *client) list() (string, error) {
-	return execWithOut("zfs", "list")
+func SanitizeRawStringToList[T ~string](raw string) []T {
+	var sanitized []T
+	lines := strings.Split(raw, "\n")
+	for _, line := range lines {
+		if strings.Contains(line, "/") {
+			sanitized = append(sanitized, T(line))
+		}
+	}
+	return sanitized
 }
 
-func execWithOut(name string, args ...string) (string, error) {
+func RunCMD(name string, args ...string) (string, error) {
 	cmd := exec.Command(name, args...)
 
 	// Capture output

@@ -5,34 +5,34 @@ import (
 
 	"github.com/kataras/golog"
 	"github.com/rgroemmer/zfs-backupper/pkg/zfs"
-	"k8s.io/client-go/kubernetes"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 func main() {
 	if err := run(); err != nil {
-		log.Fatalf("Error running controller: %v", err)
+		log.Fatalf("Error executing BackupRunner: %v", err)
 	}
 }
 
 func run() error {
 	log := golog.New()
 
-	log.Info("Setting up rest-config")
-	restConfig, err := config.GetConfig()
+	// Get dataset list
+	log.Info("Listing datasets")
+	datasets, err := zfs.ListDatasets()
 	if err != nil {
 		return err
 	}
 
-	log.Info("Setting up kubernetes clientset")
-	clientset, err := kubernetes.NewForConfig(restConfig)
-	if err != nil {
-		return err
+	// Create snapshots forEach
+	log.Info("Createing snapshot for each dataset")
+	for _, ds := range datasets {
+		err := zfs.CreateSnapshot(ds)
+		if err != nil {
+			return err
+		}
 	}
 
-	log.Info("Starting BackupManager")
-	return (&zfs.BackupManager{
-		KubeClient: clientset,
-		Log:        log,
-	}).Start()
+	// Pipe to restic forEach snap
+
+	return nil
 }
