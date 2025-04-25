@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"io"
@@ -67,28 +68,38 @@ func CMDPipeOut(name string, args ...string) (io.ReadCloser, error) {
 	return stdoutPipe, nil
 }
 
-func CMDPipeIn(name string, input io.ReadCloser, args ...string) (string, error) {
+func CMDPipeIn(name string, input io.ReadCloser, args ...string) error {
 	cmd := exec.Command(name, args...)
 
-	// Connect to input from pipe
-	cmd.Stdin = input
-	defer input.Close()
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
 
-	// Capture output
-	var outBuf bytes.Buffer
-	var errBuf bytes.Buffer
-	cmd.Stdout = &outBuf
-	cmd.Stderr = &errBuf
-
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf(
-			"Error executing: %s %s, returnd: %w\n stderr: %s",
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf(
+			"Error executing: %s %s, returnd: %w\n stderr",
 			name,
 			strings.Join(args, " "),
 			err,
-			errBuf.String(),
 		)
 	}
 
-	return outBuf.String(), nil
+	go func() {
+		scanner := bufio.NewScanner(stdoutPipe)
+		for scanner.Scan() {
+			line := scanner.Text()
+			fmt.Println(line)
+		}
+		if err := scanner.Err(); err != nil {
+			fmt.Println("error reading stdout", err)
+		}
+	}()
+
+	err = cmd.Wait()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
